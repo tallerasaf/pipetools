@@ -1,3 +1,5 @@
+from typing import Callable
+
 try:
     from collections.abc import Iterable
 except ImportError:
@@ -49,8 +51,16 @@ class Pipe(object):
         # this is needed because of evaluation order
         pipe_in_a_pipe = isinstance(next_func, Pipe) and next_func.func is None
         new_cls = type(next_func) if pipe_in_a_pipe else None
-        next = None if pipe_in_a_pipe else prepare_function_for_pipe(next_func)
-        return self.bind(self.func, next, new_cls)
+        if pipe_in_a_pipe:
+            next = None
+            return self.bind(self.func, next, new_cls)
+        if isinstance(next_func, (Callable, str))\
+                or (isinstance(next_func, tuple) and isinstance(next_func[0], Callable)):
+            next = prepare_function_for_pipe(next_func)
+            return self.bind(self.func, next, new_cls)
+        current_func = prepare_function_for_pipe((self.func, next_func))
+        next = None
+        return self.bind(current_func, next, new_cls)
 
     def __ror__(self, prev_func):
         return self.bind(prepare_function_for_pipe(prev_func), self.func)
@@ -98,6 +108,12 @@ def prepare_function_for_pipe(thing):
     if isinstance(thing, XObject):
         return ~thing
     if isinstance(thing, tuple):
+        if len(thing) == 2:
+            func, args = thing
+            if isinstance(args, tuple):
+                return xpartial(func, *args)
+            if isinstance(args, dict):
+                return xpartial(func, **args)
         return xpartial(*thing)
     if isinstance(thing, string_types):
         return StringFormatter(thing)

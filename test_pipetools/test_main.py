@@ -1,5 +1,7 @@
 # encoding: utf-8
 import pytest
+from dataclasses import dataclass
+from typing import Callable, Final
 
 from pipetools import pipe, X, maybe, xpartial
 from pipetools.main import StringFormatter
@@ -16,7 +18,6 @@ class TestPipe(object):
     pipe = property(lambda self: pipe)
 
     def test_pipe(self):
-
         p = self.pipe | str | (lambda x: x * 2)
 
         assert p(5) == '55'
@@ -44,6 +45,49 @@ class TestPipe(object):
     def test_unicode_formatting(self):
         f = self.pipe | u'That will be £ {0}, please.'
         assert f(42) == u'That will be £ 42, please.'
+
+    def test_automatic_partial(self):
+        odd_sum = self.pipe | range | (filter, lambda x: x % 2) | sum
+        assert odd_sum(1, 10) == 25
+
+    def test_automatic_partial_with_kwargs_using_pipe(self):
+        dataclass_kwargs: dict[str, bool] = {'frozen': True, 'kw_only': True, 'slots': True}
+        my_dataclass: Callable = self.pipe | dataclass | dataclass_kwargs
+
+        self._assert_dataclass_builder(my_dataclass)
+
+    def test_automatic_partial_with_kwargs_using_tuple(self):
+        dataclass_kwargs: dict[str, bool] = {'frozen': True, 'kw_only': True, 'slots': True}
+        my_dataclass: Callable = self.pipe | (dataclass, dataclass_kwargs)
+
+        self._assert_dataclass_builder(my_dataclass)
+
+    def test_automatic_partial_with_args_using_pipe(self):
+        range_args: tuple[int, int, int] = (1, 20, 2)
+        my_range: Callable = self.pipe | range | range_args
+
+        assert list(my_range()) == [1, 3, 5, 7, 9, 11, 13, 15, 17, 19]
+
+    def test_automatic_partial_with_args_using_tuple(self):
+        range_args: tuple[int, int, int] = (1, 20, 2)
+        my_range: Callable = self.pipe | (range, range_args)
+
+        assert list(my_range()) == [1, 3, 5, 7, 9, 11, 13, 15, 17, 19]
+
+    def test_feeding_the_pipe(self):
+        result = range(10) > self.pipe | sum
+        assert result == 45
+
+    @staticmethod
+    def _assert_dataclass_builder(my_dataclass):
+        @my_dataclass
+        class Bla:
+            foo: int
+            bar: str
+
+        with pytest.raises(TypeError):
+            Bla(5, 'bbb')
+        assert Bla(foo=5, bar='bbb').foo == 5
 
     def test_makes_a_bound_method(self):
 

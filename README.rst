@@ -160,6 +160,28 @@ result as the previous example:
 
     odd_sum = pipe | range | (filter, lambda x: x % 2) | sum
 
+    # Automatic partial with *args
+    range_args: tuple[int, int, int] = (1, 20, 2)
+    # Using pipe
+    my_range: Callable = pipe | range | range_args
+    # Using tuple
+    my_range: Callable = pipe | (range, range_args)
+    # list(my_range()) == [1, 3, 5, 7, 9, 11, 13, 15, 17, 19]
+
+    # Automatic partial with **kwargs
+    dataclass_kwargs: dict[str, bool] = {'frozen': True, 'kw_only': True, 'slots': True}
+    # Using pipe
+    my_dataclass: Callable = pipe | dataclass | dataclass_kwargs
+    # Using tuple
+    my_dataclass: Callable = pipe | (dataclass, dataclass_kwargs)
+    @my_dataclass
+    class Bla:
+        foo: int
+        bar: str
+
+    # Bla(5, 'bbb') -> Raises TypeError: takes 1 positional argument but 3 were given
+    # Bla(foo=5, bar='bbb').foo == 5
+
 As of ``0.1.9``, this is even more powerful, see `X-partial  <https://0101.github.io/pipetools/doc/xpartial.html>`_.
 
 
@@ -248,6 +270,8 @@ It can also be done using the ``>`` operator:
 .. code-block:: python
 
     result = some_input > pipe | foo | bar | boo
+
+    result = range(10) > pipe | sum # result==45
 
 .. note::
     Note that the above method of input won't work if the input object
